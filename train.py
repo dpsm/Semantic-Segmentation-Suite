@@ -1,7 +1,5 @@
 from __future__ import print_function
 import os,time,cv2, sys, math
-import tensorflow as tf
-import tensorflow.contrib.slim as slim
 import numpy as np
 import time, datetime
 import argparse
@@ -46,8 +44,15 @@ parser.add_argument('--rotation', type=float, default=None, help='Whether to ran
 parser.add_argument('--model', type=str, default="FC-DenseNet56", help='The model you are using. See model_builder.py for supported models')
 parser.add_argument('--frontend', type=str, default="ResNet101", help='The frontend you are using. See frontend_builder.py for supported models')
 parser.add_argument('--train_dir', type=str, default="train", help='The directory on which training artifacts will be stored.')
+parser.add_argument('--nvidia_gpu', type=int, default=0, help='The NVIDIA GPU to use for training')
 args = parser.parse_args()
 
+import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = str(args.nvidia_gpu)
+
+import tensorflow as tf
+import tensorflow.contrib.slim as slim
 
 def data_augmentation(input_image, output_image):
     # Data augmentation
@@ -84,11 +89,6 @@ for class_name in class_names_list:
 
 num_classes = len(label_values)
 
-config = tf.ConfigProto()
-config.gpu_options.allow_growth = True
-sess=tf.Session(config=config)
-
-
 # Compute your softmax cross entropy loss
 net_input = tf.placeholder(tf.float32,shape=[None,None,None,3])
 net_output = tf.placeholder(tf.float32,shape=[None,None,None,num_classes])
@@ -101,6 +101,11 @@ global_step = tf.Variable(0, name='global_step', trainable=False)
 opt = tf.train.RMSPropOptimizer(learning_rate=0.0001, decay=0.995).minimize(loss, global_step=global_step, var_list=[var for var in tf.trainable_variables()])
 
 saver=tf.train.Saver(max_to_keep=1000)
+
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+config.allow_soft_placement = True
+sess = tf.Session(config=config)
 sess.run(tf.global_variables_initializer())
 
 utils.count_params()
